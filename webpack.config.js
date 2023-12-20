@@ -1,11 +1,13 @@
 const path = require("path");
+const globule = require("globule");
+const webpack = require("webpack");
 const MiniCssExtractPlugin = require("mini-css-extract-plugin");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 
 const src = path.resolve(__dirname, "./src");
 const dist = path.resolve(__dirname, "./dist");
 
-module.exports = {
+const app = {
   entry: `${src}/js/index.js`,
   output: {
     path: `${dist}`,
@@ -15,16 +17,25 @@ module.exports = {
     static: "dist",
     open: true,
     watchFiles: [`${src}/**/*`],
-    // inline: true,
-    // hot: true,
-    // port: 8080,
-    // contentBase: dist,
+    // port: 8000,
   },
   module: {
     rules: [
       {
         test: /\.(scss|sass|css)$/i,
-        use: [MiniCssExtractPlugin.loader, "css-loader", "sass-loader"],
+        use: [
+          MiniCssExtractPlugin.loader,
+          "css-loader",
+          {
+            loader: "postcss-loader",
+            options: {
+              postcssOptions: {
+                plugins: [require("autoprefixer")({ grid: true })],
+              },
+            },
+          },
+          "sass-loader",
+        ],
       },
       {
         test: /\.(png|jpe?g|gif|svg)$/i,
@@ -53,9 +64,9 @@ module.exports = {
     new MiniCssExtractPlugin({
       filename: "assets/css/style.css",
     }),
-    new HtmlWebpackPlugin({
-      template: `${src}/pug/index.pug`,
-      filename: "index.html",
+    new webpack.ProvidePlugin({
+      $: "jquery",
+      jQuery: "jquery",
     }),
   ],
   devtool: "source-map",
@@ -63,3 +74,20 @@ module.exports = {
     ignored: /node_modules/,
   },
 };
+
+const pugFiles = globule.find(`${src}/pug/*.pug`, {
+  ignore: [`${src}/pug/_*.pug`, `${src}/pug/include/_*.pug`],
+});
+
+pugFiles.forEach((pug) => {
+  const file = pug.split("/").slice(-1)[0].replace(".pug", ".html");
+  app.plugins.push(
+    new HtmlWebpackPlugin({
+      inject: "body",
+      filename: `${dist}/${file}`,
+      template: pug,
+    })
+  );
+});
+
+module.exports = app;
